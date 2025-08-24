@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Project Epoch — Resto Druid Healing Calculator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root { color-scheme: dark light; }
+  .card { @apply rounded-2xl shadow p-5 bg-white/60 dark:bg-slate-900/60 backdrop-blur; }
+  .grid-label { @apply text-sm font-medium text-slate-600 dark:text-slate-300; }
+  .num { font-variant-numeric: tabular-nums; }
+  details > summary { cursor: pointer; }
+</style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+  <div class="max-w-7xl mx-auto px-4 py-6 md:py-10">
+    <header class="mb-6">
+      <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">Project Epoch — Resto Druid Healing Calculator</h1>
+      <p class="text-slate-600 dark:text-slate-300 mt-2">Set your stats, tick talents (incl. Hybrid <em>Lunar Guidance</em>), then calculate average heal, mana cost, and healing-per-mana for every spell/rank.</p>
+    </header>
+
+    <!-- Inputs -->
+    <section class="grid md:grid-cols-3 gap-4 md:gap-6 items-start">
+      <div class="card md:col-span-2">
+        <h2 class="text-xl font-semibold mb-3">Base stats</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <label class="grid">
+            <span class="grid-label">Intellect</span>
+            <input id="intellect" type="number" inputmode="numeric" value="400" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Spirit</span>
+            <input id="spirit" type="number" inputmode="numeric" value="350" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">+Healing (gear)</span>
+            <input id="spellPower" type="number" inputmode="numeric" value="1200" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Base Mana</span>
+            <input id="baseMana" type="number" inputmode="numeric" value="3000" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Mana per Int</span>
+            <input id="manaPerInt" type="number" step="1" value="15" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Player Level</span>
+            <input id="playerLevel" type="number" value="70" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Spell Crit % (gear/buffs)</span>
+            <input id="critPct" type="number" step="0.1" value="10" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Apply downranking penalties</span>
+            <select id="applyDownrank" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+              <option value="yes" selected>Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+        </div>
+
+        <h2 class="text-xl font-semibold mt-6 mb-2">Talents / Modifiers</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <label class="flex items-center gap-3"><input id="talLG" type="checkbox" class="w-4 h-4"><span>Lunar Guidance (Hybrid): <span class="opacity-80">+9% Int & +30% of Int to +Healing</span></span></label>
+          <label class="flex items-center gap-3"><input id="talGoN" type="checkbox" class="w-4 h-4" checked><span>Gift of Nature (5/5): <span class="opacity-80">+10% all healing</span></span></label>
+          <label class="flex items-center gap-3"><input id="talImpRejuv" type="checkbox" class="w-4 h-4"><span>Improved Rejuvenation (3/3): <span class="opacity-80">+15% Rejuv base only</span></span></label>
+          <label class="flex items-center gap-3"><input id="talEmpRejuv" type="checkbox" class="w-4 h-4" checked><span>Empowered Rejuvenation (5/5): <span class="opacity-80">+20% SP scaling (Rejuv/Regrowth/LB/Tranq)</span></span></label>
+          <label class="flex items-center gap-3"><input id="talToL" type="checkbox" class="w-4 h-4"><span>Tree of Life (Form): <span class="opacity-80">–20% mana on HoTs</span></span></label>
+          <label class="flex items-center gap-3"><input id="tolAura" type="checkbox" class="w-4 h-4"><span>Target is in your ToL aura: <span class="opacity-80">+0.25 × Spirit to every heal event</span></span></label>
+          <label class="flex items-center gap-3"><input id="talMoonglow" type="checkbox" class="w-4 h-4"><span>Moonglow (3/3): <span class="opacity-80">–9% mana (HT/Rejuv/Regrowth)</span></span></label>
+          <label class="flex items-center gap-3"><input id="talTranqSpirit" type="checkbox" class="w-4 h-4"><span>Tranquil Spirit (5/5): <span class="opacity-80">–10% mana (HT/Tranquility)</span></span></label>
+          <label class="flex items-center gap-3"><input id="talImpRegrowth" type="checkbox" class="w-4 h-4"><span>Improved Regrowth (5/5): <span class="opacity-80">+50% crit to Regrowth direct</span></span></label>
+          <label class="flex items-center gap-3"><input id="optSMcrit" type="checkbox" class="w-4 h-4"><span>Allow Swiftmend to crit (optional)</span></label>
+          <label class="flex items-center gap-3"><input id="optLBbloomCrit" type="checkbox" class="w-4 h-4"><span>Allow Lifebloom bloom to crit (optional)</span></label>
+        </div>
+
+        <h2 class="text-xl font-semibold mt-6 mb-2">Lifebloom / Tranquility runtime options</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <label class="grid">
+            <span class="grid-label">LB stacks (1–3)</span>
+            <input id="lbStacks" type="number" min="1" max="3" value="1" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Include LB bloom?</span>
+            <select id="lbIncludeBloom" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+              <option value="yes" selected>Yes (let it bloom)</option>
+              <option value="no">No (rolling refresh)</option>
+            </select>
+          </label>
+          <label class="grid">
+            <span class="grid-label">Tranq targets</span>
+            <input id="tranqTargets" type="number" min="1" value="5" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+          </label>
+          <label class="grid">
+            <span class="grid-label">Show per-target Tranq</span>
+            <select id="tranqPerTarget" class="mt-1 rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50">
+              <option value="no" selected>Total (all targets)</option>
+              <option value="yes">Per target</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+          <button id="calcBtn" class="rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-5 py-2.5 font-medium">Calculate</button>
+          <button id="resetBtn" class="rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 px-4 py-2">Reset</button>
+        </div>
+      </div>
+
+      <aside class="card">
+        <h2 class="text-xl font-semibold mb-3">Notes & assumptions</h2>
+        <ul class="text-sm list-disc pl-5 space-y-2 text-slate-700 dark:text-slate-300">
+          <li>Epoch uses **TBC-era coefficients**; heals crit for 150% (expected multiplier <code>1 + 0.5 × crit%</code> for direct heals).</li>
+          <li>Pre-20 rank penalty: <code>1 − 0.0375 × (20 − learnLvl)</code>. Downrank penalty: <code>min(1, (learnLvl+11)/playerLevel)</code>.</li>
+          <li><b>Coefficients</b> used: HT 1.00; Rejuv 0.80 (0.20/tick ×4); Regrowth 0.1865 direct + 0.6363 HoT; Lifebloom ≈0.67 HoT total + 0.50 bloom; Tranquility 0.33 per target.</li>
+          <li>ToL aura adds a flat <code>0.25 × Spirit</code> to each heal event when toggled.</li>
+        </ul>
+        <details class="mt-3">
+          <summary class="text-sm text-indigo-500">Data included (ranks)</summary>
+          <div class="text-xs mt-2 space-y-2">
+            <p>Preloaded ranks include common downranks + max ranks for HT/Rejuv/Regrowth, and full TBC ranks for Lifebloom (1) and Tranquility (5). You can extend the dataset below inside the script.</p>
+          </div>
+        </details>
+      </aside>
+    </section>
+
+    <!-- Results -->
+    <section class="mt-6">
+      <div class="card">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-xl font-semibold">Results</h2>
+          <div id="totals" class="text-sm text-slate-600 dark:text-slate-300"></div>
+        </div>
+        <div class="overflow-x-auto mt-3">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0 bg-slate-200/60 dark:bg-slate-800/60 backdrop-blur">
+              <tr class="text-left">
+                <th class="py-2 px-2">Spell</th>
+                <th class="py-2 px-2">Rank</th>
+                <th class="py-2 px-2">Learn Lvl</th>
+                <th class="py-2 px-2">Avg Heal / Cast</th>
+                <th class="py-2 px-2">Mana Cost</th>
+                <th class="py-2 px-2">Healing / Mana</th>
+                <th class="py-2 px-2">Details</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-8 text-xs text-slate-500">
+      <p>Built for Project Epoch druids. Coefficients & mechanics match TBC unless Epoch notes say otherwise.</p>
+    </footer>
+  </div>
+
+<script>
+/* ------------------------------ Spell data ------------------------------ */
+/* Each rank object:
+  { rank, learn, mana, ...spell-specific fields... }
+  Healing Touch: {min,max, cast}
+  Rejuvenation:  {total, ticks}
+  Regrowth:      {dmin,dmax, hotTotal, cast, ticks}
+  Lifebloom:     {hotTotal, ticks, bloom}
+  Tranquility:   {tickBase, ticks}
+  All mana values are pre-talent/base.
+  Sources (max ranks / samples):
+  - HT r13: 2707–3197, 935 mana, 3.5s; learn 69 (TBC) 
+  - Rejuv r13: 1060 over 12s (265/tick), 415 mana (TBC)
+  - Regrowth r10: 1215–1355 + 1274/21s, 675 mana, 2.0s; learn 65 (TBC)
+  - Lifebloom r1: 280 over 7s (1s ticks), bloom 601, 220 mana; learn 64 (TBC)
+  - Tranquility r5: 1518 per 2s for 8s, 1650 mana, learn 70 (TBC)
+*/
+const DATA = {
+  "Healing Touch": {
+    type: "direct",
+    coeff: (rank)=> (rank.cast ?? 3.5) / 3.5, // normalization
+    ranks: [
+      {rank:1,  learn:1,  mana:25,  min:37,   max:52,   cast:1.5},
+      {rank:2,  learn:8,  mana:55,  min:88,   max:113,  cast:2.0},
+      {rank:3,  learn:14, mana:110, min:195,  max:243,  cast:2.5},
+      {rank:4,  learn:20, mana:185, min:363,  max:446,  cast:3.0},
+      {rank:5,  learn:26, mana:270, min:572,  max:695,  cast:3.5},
+      {rank:6,  learn:32, mana:335, min:742,  max:895,  cast:3.5},
+      {rank:7,  learn:38, mana:405, min:936,  max:1121, cast:3.5},
+      {rank:10, learn:56, mana:720, min:1890, max:2231, cast:3.5},
+      {rank:11, learn:60, mana:800, min:2267, max:2677, cast:3.5},
+      {rank:13, learn:69, mana:935, min:2707, max:3197, cast:3.5}
+    ]
+  },
+  "Rejuvenation": {
+    type: "hot",
+    coeffTotal: 0.80,
+    ticks: 4, // 12s / 3s
+    ranks: [
+      // include a couple of downranks + max
+      {rank:1,  learn:4,  mana:25,  total:32},
+      {rank:11, learn:60, mana:360, total:888}, // classic r11
+      {rank:13, learn:68, mana:415, total:1060} // TBC max
+    ]
+  },
+  "Regrowth": {
+    type: "hybrid",
+    dCoeff: 0.1865,
+    hCoeffTotal: 0.6363,
+    ticks: 7, // 21s / 3s
+    cast: 2.0,
+    ranks: [
+      {rank:3,  learn:24, mana:305, dmin:339, dmax:384, hotTotal:294},
+      {rank:5,  learn:36, mana:560, dmin:561, dmax:631, hotTotal:511},
+      {rank:8,  learn:48, mana:740, dmin:809, dmax:905, hotTotal:517}, // sample
+      {rank:10, learn:65, mana:675, dmin:1215, dmax:1355, hotTotal:1274}
+    ]
+  },
+  "Lifebloom": {
+    type: "lifebloom",
+    hCoeffTotal: 0.67, // HoT total
+    bloomCoeff: 0.50,
+    ranks: [
+      {rank:1, learn:64, mana:220, hotTotal:280, ticks:7, bloom:601}
+    ]
+  },
+  "Tranquility": {
+    type: "tranquility",
+    coeffTotalPerTarget: 0.33,
+    ranks: [
+      // Using TBC Rank 5 (level 70)
+      {rank:5, learn:70, mana:1650, tickBase:1518, ticks:4, duration:8}
+    ]
+  }
+};
+
+/* ----------------------------- Helper functions ----------------------------- */
+const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+const avg = (a,b)=> (a+b)/2;
+const pct = (x)=> x/100;
+
+function pre20Penalty(learn) {
+  if (learn >= 20) return 1;
+  return 1 - 0.0375*(20 - learn);
+}
+function downrankPenalty(learn, level) {
+  return Math.min(1, (learn + 11) / level);
+}
+
+function manaCost(base, flags) {
+  // flags: { isHT, isRejuv, isRegrowth, isTranq, isHot, moonglow, tranquilSpirit, tol }
+  let cost = base;
+  if (flags.moonglow && (flags.isHT || flags.isRejuv || flags.isRegrowth)) cost *= 0.91;
+  if (flags.tranquilSpirit && (flags.isHT || flags.isTranq)) cost *= 0.90;
+  if (flags.tol && flags.isHot) cost *= 0.80;
+  return cost;
+}
+
+/* ------------------------------ Core Calculator ------------------------------ */
+function calculateAll() {
+  // Inputs
+  const intBase  = Number(document.getElementById('intellect').value||0);
+  const spirit   = Number(document.getElementById('spirit').value||0);
+  const spGear   = Number(document.getElementById('spellPower').value||0);
+  const baseMana = Number(document.getElementById('baseMana').value||0);
+  const manaPerInt = Number(document.getElementById('manaPerInt').value||15);
+  const playerLevel = Number(document.getElementById('playerLevel').value||70);
+  const critGearPct = Number(document.getElementById('critPct').value||0);
+
+  const applyDown = document.getElementById('applyDownrank').value === 'yes';
+
+  // Talents & toggles
+  const tLG   = document.getElementById('talLG').checked;
+  const tGoN  = document.getElementById('talGoN').checked;
+  const tImpRejuv = document.getElementById('talImpRejuv').checked;
+  const tEmpRejuv = document.getElementById('talEmpRejuv').checked;
+  const tToL  = document.getElementById('talToL').checked;
+  const tAura = document.getElementById('tolAura').checked;
+  const tMoonglow = document.getElementById('talMoonglow').checked;
+  const tTranqSpirit = document.getElementById('talTranqSpirit').checked;
+  const tImpRegrowth = document.getElementById('talImpRegrowth').checked;
+  const optSMcrit = document.getElementById('optSMcrit').checked;
+  const optLBbloomCrit = document.getElementById('optLBbloomCrit').checked;
+
+  const lbStacks = clamp(Number(document.getElementById('lbStacks').value||1),1,3);
+  const lbIncludeBloom = document.getElementById('lbIncludeBloom').value === 'yes';
+  const tranqTargets = Math.max(1, Number(document.getElementById('tranqTargets').value||5));
+  const tranqPerTarget = document.getElementById('tranqPerTarget').value === 'yes';
+
+  // Lunar Guidance hybrid
+  const intEffective = tLG ? intBase * 1.09 : intBase;
+  const spFromLG = tLG ? 0.30 * intEffective : 0;
+  const SP = spGear + spFromLG;
+
+  const manaFromInt = intEffective * manaPerInt;
+  const totalMana = baseMana + manaFromInt;
+
+  // Global modifiers
+  const baseHealMultAll = tGoN ? 1.10 : 1.0;
+  const auraFlat = tAura ? (0.25 * spirit) : 0;
+
+  // Build results
+  const rows = [];
+  let totalHealing = 0, totalManaSpent = 0;
+
+  // Iterate spells
+  for (const [spellName, spell] of Object.entries(DATA)) {
+    for (const r of spell.ranks) {
+      const p20 = pre20Penalty(r.learn) * (applyDown ? 1 : 1);
+      const down = applyDown ? downrankPenalty(r.learn, playerLevel) : 1;
+
+      // local helpers for coeff bonuses (Emp. Rejuv applies to specific spells)
+      const coeffBonus = (spellName === 'Rejuvenation' || spellName === 'Regrowth' || spellName === 'Lifebloom' || spellName === 'Tranquility')
+        ? (tEmpRejuv ? 1.20 : 1.0)
+        : 1.0;
+
+      // base-mult for spells (Imp Rejuv is base-only)
+      const baseMult = (spellName === 'Rejuvenation' && tImpRejuv) ? baseHealMultAll * 1.15 : baseHealMultAll;
+
+      // flags for mana reducers
+      const manaFlags = {
+        isHT: (spellName === 'Healing Touch'),
+        isRejuv: (spellName === 'Rejuvenation'),
+        isRegrowth: (spellName === 'Regrowth'),
+        isTranq: (spellName === 'Tranquility'),
+        isHot: (spellName === 'Rejuvenation' || spellName === 'Regrowth' || spellName === 'Lifebloom'),
+        moonglow: tMoonglow, tranquilSpirit: tTranqSpirit, tol: tToL
+      };
+
+      let avgHeal = 0;
+      let mana = r.mana;
+
+      if (spell.type === 'direct') {
+        const c = (typeof spell.coeff === 'function') ? spell.coeff(r) : spell.coeff;
+        const base = avg(r.min, r.max) * baseMult + auraFlat; // ToL aura adds flat to the event
+        const scale = SP * c * p20 * down * 1.0; // no EmpRejuv for HT
+        const critChance = pct(critGearPct);
+        const expected = (base + scale) * (1 + 0.5 * critChance);
+        avgHeal = expected;
+        mana = manaCost(mana, manaFlags);
+
+      } else if (spell.type === 'hot') {
+        const ticks = r.ticks ?? spell.ticks ?? 4;
+        const tickBase = (r.total / ticks);
+        const tickCoeff = (spell.coeffTotal ?? 0.80) / ticks;
+        let sum = 0;
+        for (let i=0;i<ticks;i++) {
+          const base = tickBase * baseMult + auraFlat;
+          const scale = SP * tickCoeff * coeffBonus * p20 * down;
+          sum += (base + scale);
+        }
+        avgHeal = sum;
+        mana = manaCost(mana, manaFlags);
+
+      } else if (spell.type === 'hybrid') {
+        // Regrowth
+        const dBase = avg(r.dmin, r.dmax) * baseMult + auraFlat;
+        const dScale = SP * (spell.dCoeff) * coeffBonus * p20 * down;
+        let critChance = pct(critGearPct);
+        if (tImpRegrowth) critChance = Math.min(1, critChance + 0.50);
+        const directExpected = (dBase + dScale) * (1 + 0.5 * critChance);
+
+        const ticks = spell.ticks ?? 7;
+        const tickBase = (r.hotTotal / ticks);
+        const tickCoeff = (spell.hCoeffTotal) / ticks;
+        let hotSum = 0;
+        for (let i=0;i<ticks;i++) {
+          const base = tickBase * baseMult + auraFlat;
+          const scale = SP * tickCoeff * coeffBonus * p20 * down;
+          hotSum += (base + scale);
+        }
+
+        avgHeal = directExpected + hotSum;
+        mana = manaCost(mana, manaFlags);
+
+      } else if (spell.type === 'lifebloom') {
+        // Lifebloom — stack-aware, optional bloom
+        const ticks = r.ticks ?? 7;
+        const tickBase = (r.hotTotal / ticks); // per stack
+        const tickCoeff = (spell.hCoeffTotal) / ticks;
+        let hotSum = 0;
+        for (let i=0;i<ticks;i++) {
+          const base = (tickBase * lbStacks) * baseMult + auraFlat;
+          const scale = (SP * tickCoeff * coeffBonus * p20 * down) * lbStacks;
+          hotSum += (base + scale);
+        }
+        let total = hotSum;
+
+        if (lbIncludeBloom) {
+          const baseBloom = (r.bloom * baseMult) + auraFlat;
+          const scaleBloom = SP * (spell.bloomCoeff) * coeffBonus * p20 * down;
+          const critChance = optLBbloomCrit ? pct(critGearPct) : 0;
+          const bloomEV = (baseBloom + scaleBloom) * (1 + 0.5 * critChance);
+          total += bloomEV; // bloom does not stack with stacks; it fires once
+        }
+
+        avgHeal = total;
+        mana = manaCost(mana, manaFlags);
+
+      } else if (spell.type === 'tranquility') {
+        const ticks = r.ticks ?? 4;
+        const perTickBase = r.tickBase * baseMult + (auraFlat);
+        const baseTotalPerTarget = perTickBase * ticks;
+        const scaleTotalPerTarget = SP * (spell.coeffTotalPerTarget) * coeffBonus * p20 * down;
+        const perTarget = baseTotalPerTarget + scaleTotalPerTarget;
+        const count = tranqPerTarget ? 1 : tranqTargets;
+        avgHeal = perTarget * count;
+        mana = manaCost(mana, manaFlags);
+      }
+
+      const hpm = avgHeal / mana;
+
+      rows.push({
+        spell: spellName,
+        rank: r.rank,
+        learn: r.learn,
+        avg: avgHeal,
+        mana,
+        hpm,
+        note: ''
+      });
+
+      totalHealing += avgHeal;
+      totalManaSpent += mana;
+    }
+  }
+
+  // Render
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = rows
+    .sort((a,b)=> a.spell.localeCompare(b.spell) || a.rank - b.rank)
+    .map(r => `
+      <tr class="border-b border-slate-200/40 dark:border-slate-800/60">
+        <td class="py-2 px-2">${r.spell}</td>
+        <td class="py-2 px-2">R${r.rank}</td>
+        <td class="py-2 px-2">${r.learn}</td>
+        <td class="py-2 px-2 num">${fmt(r.avg)}</td>
+        <td class="py-2 px-2 num">${fmt(r.mana)}</td>
+        <td class="py-2 px-2 num">${fmt(r.hpm)}</td>
+        <td class="py-2 px-2 text-slate-500">${r.note||''}</td>
+      </tr>
+    `).join('');
+
+  document.getElementById('totals').innerHTML =
+    `Effective Int: <span class="num">${fmt0(intEffective)}</span> • +Healing total: <span class="num">${fmt0(SP)}</span> ` +
+    `• Total Mana: <span class="num">${fmt0(totalMana)}</span>`;
+}
+
+function fmt(n){ return Number(n).toLocaleString(undefined, {maximumFractionDigits:2}); }
+function fmt0(n){ return Number(n).toLocaleString(undefined, {maximumFractionDigits:0}); }
+
+/* ------------------------------- Wire up UI ------------------------------- */
+document.getElementById('calcBtn').addEventListener('click', calculateAll);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('intellect').value = 400;
+  document.getElementById('spirit').value = 350;
+  document.getElementById('spellPower').value = 1200;
+  document.getElementById('baseMana').value = 3000;
+  document.getElementById('manaPerInt').value = 15;
+  document.getElementById('playerLevel').value = 70;
+  document.getElementById('critPct').value = 10;
+  ['talLG','talGoN','talImpRejuv','talEmpRejuv','talToL','tolAura','talMoonglow','talTranqSpirit','talImpRegrowth','optSMcrit','optLBbloomCrit'].forEach(id=>{
+    document.getElementById(id).checked = false;
+  });
+  document.getElementById('talGoN').checked = true;
+  document.getElementById('talEmpRejuv').checked = true;
+  document.getElementById('applyDownrank').value = 'yes';
+  document.getElementById('lbStacks').value = 1;
+  document.getElementById('lbIncludeBloom').value = 'yes';
+  document.getElementById('tranqTargets').value = 5;
+  document.getElementById('tranqPerTarget').value = 'no';
+  calculateAll();
+});
+
+// initial calc
+calculateAll();
+</script>
+</body>
+</html>
