@@ -75,7 +75,7 @@
         <span aria-hidden="true">🌿</span>
       </div>
       <h1 class="text-3xl md:text-4xl font-semibold tracking-tight">Resto Druid Healing — Calculator</h1>
-      <p class="text-emerald-200/80 mt-2">Set stats, tick talents (incl. Hybrid <em>Lunar Guidance</em>), set <b>fight length</b>, then calculate average heal, mana cost, HPM, OOM casts, and time-limited casts.</p>
+      <p class="text-emerald-200/80 mt-2">Set stats, tick talents , set <b>fight length</b>, then calculate average heal, mana cost, HPM, OOM casts, and time-limited casts.</p>
     </header>
 
     <!-- Inputs -->
@@ -174,7 +174,7 @@
           <li>Downranking: Pre-20 penalty <code>1 − 0.0375 × (20 − learnLvl)</code>; old-rank factor <code>min(1, (learnLvl+11)/level)</code>.</li>
           <li>Spirit regen (2.4): <code>MP5_spirit = 5 * (0.001 + 0.010999 * Spirit * sqrt(Int))</code>. <b>Intensity</b> lets 30% of that work while casting; MP5 (gear) always works.</li>
           <li>Coefficients: HT 1.00; Rejuv 0.80 (0.20/tick ×4); Regrowth 0.1865 direct + 0.6363 HoT; LB ≈0.67 HoT + 0.50 bloom; Tranq 0.33 per target.</li>
-          <li>New column: <b>Casts in Fight (regen)</b> = min(time-limited casts, mana-limited casts with regen).</li>
+          <li>Casts in Fight (regen) = min(time-limited casts, mana-limited casts with regen).</li>
         </ul>
       </aside>
     </section>
